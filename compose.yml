@@ -1,0 +1,14 @@
+services:
+  pcb-press:
+    build: .
+    container_name: pcb-press-app
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mounts the models directory so you can easily access the generated STLs 
+      # directly from your host machine's file explorer.
+      - ./static/models:/app/static/models
+    environment:
+      # Ensures Python output is sent straight to the terminal without buffering
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
