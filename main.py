@@ -23,12 +23,12 @@ builtins.open = _patched_open
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 import gerber
 import trimesh
-import numpy as np
+import shapely
 from shapely.geometry import Point, LineString, Polygon, MultiPolygon
 from shapely import ops, affinity
 
@@ -48,9 +48,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Mount the static directory so the frontend can access the STLs
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-
 class GenerateConfig(BaseModel):
-    """Data model for the generation settings sent from the frontend"""
     upload_folder_id: str
     outline_layer: str
     trace_layer: str
@@ -60,35 +58,25 @@ class GenerateConfig(BaseModel):
     mirror: bool = False
     margin_offset: float = 0.2
 
-
 @app.get("/", response_class=HTMLResponse)
 async def serve_frontend():
-    """Serves the main HTML GUI"""
     index_path = STATIC_DIR / "index.html"
     if index_path.exists():
         with open(index_path, "r") as f:
             return f.read()
     return "<h1>PCB Press</h1><p>Frontend not found. Please create static/index.html.</p>"
 
-
 @app.post("/api/upload")
 async def upload_gerber_zip(file: UploadFile = File(...)):
-    """
-    Accepts a ZIP file of Gerbers, extracts it into a unique folder,
-    and returns a list of the parsed layer filenames.
-    """
     if not file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="Only .zip files are accepted")
 
-    # Create a unique temporary directory for this upload
     temp_dir = tempfile.mkdtemp(dir=UPLOAD_DIR)
     zip_path = Path(temp_dir) / file.filename
 
-    # Save the uploaded zip
     with open(zip_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Extract the zip
     extract_dir = Path(temp_dir) / "extracted"
     extract_dir.mkdir()
     try:
@@ -97,11 +85,9 @@ async def upload_gerber_zip(file: UploadFile = File(...)):
     except zipfile.BadZipFile:
         raise HTTPException(status_code=400, detail="Invalid or corrupt ZIP file")
 
-    # Find and list available layers
     available_layers = []
     for root, dirs, files in os.walk(extract_dir):
         for f in files:
-            # Filter out obvious non-gerber files and pass the rest to the UI.
             if not f.lower().endswith(('.json', '.pdf', '.md', '.txt', '.png', '.jpg')):
                 available_layers.append(f)
 
@@ -112,9 +98,7 @@ async def upload_gerber_zip(file: UploadFile = File(...)):
     }
 
 def auto_scale_geom(geom, reference_geom):
-    """
-    Auto-detects and fixes common unit mismatches by mathematically comparing bounding boxes.
-    """
+    """Auto-detects and fixes common unit mismatches."""
     if geom.is_empty or reference_geom.is_empty:
         return geom
         
@@ -128,31 +112,38 @@ def auto_scale_geom(geom, reference_geom):
         return geom
         
     ratio = r_w / g_w
-    
-    # Standard conversion scales common in EDA mis-parsing
     scales = [25.4, 1/25.4, 10.0, 0.1, 100.0, 0.01, 1000.0, 0.001, 254.0, 1/254.0]
     best_scale = 1.0
     
     for s in scales:
-        if abs(s - ratio) / s < 0.3: # within 30% margin of error
+        if abs(s - ratio) / s < 0.3:
             best_scale = s
             break
             
     if best_scale != 1.0:
         return affinity.scale(geom, xfact=best_scale, yfact=best_scale, origin=(0,0))
-        
     return geom
 
+def flatten_to_polygons(geom):
+    """Strictly extracts only Polygons, bypassing Shapely 'create_collection' errors."""
+    if geom.is_empty:
+        return []
+    if geom.geom_type == 'Polygon':
+        return [geom]
+    elif geom.geom_type == 'MultiPolygon':
+        return list(geom.geoms)
+    elif geom.geom_type == 'GeometryCollection':
+        res = []
+        for g in geom.geoms:
+            res.extend(flatten_to_polygons(g))
+        return res
+    return []
+
 def parse_drl_to_shapely(filepath):
-    """
-    Directly converts an Excellon drill file to Shapely polygons.
-    This bypasses all bugs in the pcb-tools excellon primitive engine and avoids
-    the need for an intermediate SVG file (and lxml dependency).
-    """
+    """Directly converts an Excellon drill file to Shapely polygons."""
     tools = {}
     current_tool = None
     polys = []
-    
     last_x, last_y = 0.0, 0.0
     
     with open(filepath, 'r') as f:
@@ -162,19 +153,16 @@ def parse_drl_to_shapely(filepath):
         line = line.strip()
         if not line: continue
         
-        # Parse Tool Diameter (e.g. T01C0.8 or T1C1.2)
         tool_def = re.match(r'^T0*(\d+)C([\d.]+)', line)
         if tool_def:
             tools[tool_def.group(1)] = float(tool_def.group(2))
             continue
             
-        # Parse Tool Selection (e.g. T01)
         tool_sel = re.match(r'^T0*(\d+)$', line)
         if tool_sel:
             current_tool = tool_sel.group(1)
             continue
             
-        # Parse Coordinates. Handles implicit decimals (X15000 -> 1.5) or explicit (X1.5)
         x_match = re.search(r'X([-\d.]+)', line)
         y_match = re.search(r'Y([-\d.]+)', line)
         
@@ -186,15 +174,16 @@ def parse_drl_to_shapely(filepath):
                 val = y_match.group(1)
                 last_y = float(val) if '.' in val else float(val) / 10000.0
             
-            # Default to 0.8mm if tool is mysteriously missing
             dia = tools.get(current_tool, 0.8)
-            r = dia / 2.0
-            polys.append(Point(last_x, last_y).buffer(r, resolution=8))
+            polys.append(Point(last_x, last_y).buffer(dia / 2.0, resolution=8))
             
-    if not polys:
+    valid_polys = []
+    for p in polys:
+        if p.is_valid and not p.is_empty:
+            valid_polys.extend(flatten_to_polygons(p))
+            
+    if not valid_polys:
         return Polygon()
-        
-    valid_polys = [p for p in polys if p.is_valid and not p.is_empty]
     return ops.unary_union(valid_polys)
 
 def extract_shapely_polys(doc, is_outline=False):
@@ -205,12 +194,10 @@ def extract_shapely_polys(doc, is_outline=False):
         p_type = type(p).__name__
         
         if p_type == 'Line':
-            dia = 0.0
-            if hasattr(p, 'aperture') and hasattr(p.aperture, 'diameter'):
-                dia = p.aperture.diameter
-            if dia > 0:
+            dia = p.aperture.diameter if hasattr(p, 'aperture') and hasattr(p.aperture, 'diameter') else 0.0
+            if dia > 0 and p.start != p.end:
                 polys.append(LineString([p.start, p.end]).buffer(dia / 2.0, resolution=8))
-            elif is_outline:
+            elif is_outline and p.start != p.end:
                 polys.append(LineString([p.start, p.end]).buffer(0.01, resolution=4))
                 
         elif p_type == 'Circle':
@@ -237,38 +224,63 @@ def extract_shapely_polys(doc, is_outline=False):
                     if not pts: pts.append(rp.start)
                     pts.append(rp.end)
             if len(pts) >= 3:
-                polys.append(Polygon(pts))
+                try:
+                    polys.append(Polygon(pts))
+                except Exception:
+                    pass
                 
-    if not polys:
+    valid_polys = []
+    for p in polys:
+        try:
+            if not p.is_valid:
+                p = shapely.make_valid(p)
+            valid_polys.extend(flatten_to_polygons(p))
+        except Exception:
+            pass
+            
+    if not valid_polys:
         return Polygon()
         
-    valid_polys = [p for p in polys if p.is_valid and not p.is_empty]
     merged = ops.unary_union(valid_polys)
     
     if is_outline:
-        if merged.geom_type == 'Polygon':
-            return Polygon(merged.exterior)
-        elif merged.geom_type == 'MultiPolygon':
-            largest = max(merged.geoms, key=lambda g: g.area)
-            return Polygon(largest.exterior)
-            
+        poly_list = flatten_to_polygons(merged)
+        if not poly_list:
+            return Polygon()
+        largest = max(poly_list, key=lambda g: g.area)
+        return Polygon(largest.exterior)
+        
     return merged
 
 def extrude_geom(geom, height):
-    """Safely converts 2D shapely geometry into 3D trimesh objects"""
+    """Safely converts 2D shapely geometry into watertight 3D trimesh volumes."""
     meshes = []
-    if geom.geom_type == 'Polygon' and not geom.is_empty:
-        meshes.append(trimesh.creation.extrude_polygon(geom, height=height))
-    elif geom.geom_type == 'MultiPolygon':
-        for poly in geom.geoms:
-            if not poly.is_empty:
-                meshes.append(trimesh.creation.extrude_polygon(poly, height=height))
+    
+    # Aggressively clean the 2D geometry to remove micro-overlaps and zero-area artifacts
+    try:
+        clean_geom = geom.buffer(0).simplify(0.001)
+    except Exception:
+        clean_geom = geom
+        
+    poly_list = flatten_to_polygons(clean_geom)
+    
+    for poly in poly_list:
+        if not poly.is_empty and poly.area > 0.001:
+            try:
+                mesh = trimesh.creation.extrude_polygon(poly, height=height)
+                mesh.fix_normals()
+                
+                # Manifold engine strictly requires perfectly watertight volumes. 
+                # We drop any broken microscopic fragments here.
+                if mesh.is_volume:
+                    meshes.append(mesh)
+            except Exception:
+                pass
+                
     if not meshes:
         return trimesh.Trimesh()
     
-    res = trimesh.util.concatenate(meshes)
-    res.fix_normals()
-    return res
+    return trimesh.util.concatenate(meshes)
 
 @app.post("/api/generate")
 async def generate_stls(config: GenerateConfig):
@@ -289,44 +301,40 @@ async def generate_stls(config: GenerateConfig):
         trace_geom = extract_shapely_polys(trace_doc)
         trace_geom = auto_scale_geom(trace_geom, outline_geom)
 
-        # 3. BUILD THE SHAPELY GEOMETRY FOR VIAS (Bypassing pcb-tools & SVGs entirely)
+        # 3. Parse SHAPELY GEOMETRY FOR VIAS
         via_geom = parse_drl_to_shapely(str(extract_dir / config.via_layer))
-            
-        # Ensure the Via coordinates scale correctly against the board
         via_geom = auto_scale_geom(via_geom, outline_geom)
 
-        # 3.5 Apply mirroring directly to 2D geometry before extrusion for perfect alignment
+        # 3.5 Apply mirroring directly to 2D geometry before extrusion
         if config.mirror:
-            # We use buffer(0) to correctly orient the polygon winding orders after negative scaling
             outline_geom = affinity.scale(outline_geom, xfact=-1.0, origin=(0, 0)).buffer(0)
             trace_geom = affinity.scale(trace_geom, xfact=-1.0, origin=(0, 0)).buffer(0)
             via_geom = affinity.scale(via_geom, xfact=-1.0, origin=(0, 0)).buffer(0)
 
         # 4. Extrude Base Board
         base_mesh = extrude_geom(outline_geom, config.base_thickness)
-        if base_mesh.is_empty:
-            raise HTTPException(status_code=400, detail="Could not form a solid board from the Board Outline layer.")
+        if base_mesh.is_empty or not base_mesh.is_volume:
+            raise HTTPException(status_code=400, detail="Could not form a solid watertight board from the Outline layer. Ensure the outline is perfectly closed.")
 
-        # 5. Extrude Traces (shifted UP to the top surface)
+        # 5. Extrude Traces
         trace_mesh = extrude_geom(trace_geom, config.trace_thickness + 0.1)
         if not trace_mesh.is_empty:
             trace_mesh.apply_translation([0, 0, config.base_thickness - config.trace_thickness])
 
-        # 6. Extrude Vias / Drills (tall enough to cleanly punch through both models)
+        # 6. Extrude Vias / Drills
         via_mesh = extrude_geom(via_geom, config.base_thickness + 10.0)
         if not via_mesh.is_empty:
             via_mesh.apply_translation([0, 0, -5.0])
 
-        # 7. Boolean Subtractions for Base Board (Base - Traces - Vias)
+        # 7. Boolean Subtractions for Base Board
         final_board = base_mesh
-        if not trace_mesh.is_empty:
+        if not trace_mesh.is_empty and trace_mesh.is_volume:
             final_board = trimesh.boolean.difference([final_board, trace_mesh], engine='manifold')
-        if not via_mesh.is_empty:
+        if not via_mesh.is_empty and via_mesh.is_volume:
             final_board = trimesh.boolean.difference([final_board, via_mesh], engine='manifold')
 
 
         # --- COMPANION MOLD GENERATION ---
-        
         bounds = base_mesh.bounds
         mold_width = bounds[1][0] - bounds[0][0] + 10
         mold_height = bounds[1][1] - bounds[0][1] + 10
@@ -339,13 +347,13 @@ async def generate_stls(config: GenerateConfig):
         buffered_trace_geom = trace_geom.buffer(-config.margin_offset)
         mold_traces = extrude_geom(buffered_trace_geom, config.trace_thickness)
         
-        if not mold_traces.is_empty:
+        if not mold_traces.is_empty and mold_traces.is_volume:
             mold_traces.apply_translation([0, 0, 2.0])
             final_mold = trimesh.boolean.union([mold_base, mold_traces], engine='manifold')
         else:
             final_mold = mold_base
 
-        if not via_mesh.is_empty:
+        if not via_mesh.is_empty and via_mesh.is_volume:
             final_mold = trimesh.boolean.difference([final_mold, via_mesh], engine='manifold')
 
         # --- CENTER MODELS AT ORIGIN ---
