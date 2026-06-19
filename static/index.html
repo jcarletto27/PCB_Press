@@ -27,63 +27,34 @@
     <aside class="w-1/3 min-w-[350px] max-w-[450px] bg-white border-r border-slate-200 p-6 overflow-y-auto flex flex-col gap-6 shadow-lg z-10">
         <div>
             <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
                 PCB Press
             </h1>
         </div>
 
         <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h2 class="font-semibold mb-3">1. Upload Project (.zip)</h2>
-            <input type="file" id="zipFile" accept=".zip" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
-            <button id="uploadBtn" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md transition-colors font-medium text-sm">Upload & Parse</button>
-            <p id="uploadStatus" class="text-xs text-center mt-2 hidden"></p>
+            <input type="file" id="zipFile" accept=".zip" class="block w-full text-sm">
+            <button id="uploadBtn" class="mt-3 w-full bg-indigo-600 text-white py-2 rounded-md">Upload & Parse</button>
         </div>
 
-        <div id="mappingSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none transition-opacity">
+        <div id="mappingSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none">
             <h2 class="font-semibold mb-3">2. Map Layers</h2>
             <div class="space-y-3">
-                <div><label class="text-xs font-semibold text-slate-600 uppercase">Board Outline</label><select id="outlineLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select></div>
-                <div><label class="text-xs font-semibold text-slate-600 uppercase">Traces</label><select id="traceLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select></div>
-                <div><label class="text-xs font-semibold text-slate-600 uppercase">Drills / Vias (.drl)</label><select id="viaLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select></div>
+                <div><label class="text-xs font-semibold">Board Outline</label><select id="outlineLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
+                <div><label class="text-xs font-semibold">Traces</label><select id="traceLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
+                <div><label class="text-xs font-semibold">Drills / Vias</label><select id="viaLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
             </div>
         </div>
 
-        <div id="settingsSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none transition-opacity">
+        <div id="settingsSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none">
             <h2 class="font-semibold mb-3">3. Board Settings</h2>
-            <div class="space-y-4">
-                <div>
-                    <div class="flex justify-between text-sm"><label class="font-medium">Base Thickness</label><span id="baseVal" class="text-indigo-600 font-mono">2.0 mm</span></div>
-                    <input type="range" id="baseThickness" min="1.0" max="4.0" step="0.1" value="2.0" class="w-full accent-indigo-600">
-                </div>
-                <div>
-                    <div class="flex justify-between text-sm"><label class="font-medium">Trace Depth</label><span id="traceVal" class="text-indigo-600 font-mono">1.0 mm</span></div>
-                    <input type="range" id="traceThickness" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full accent-indigo-600">
-                </div>
-                <div>
-                    <label class="font-medium text-sm block mb-1">Trace Highlight Color</label>
-                    <input type="color" id="traceColorPicker" value="#ff0000" class="w-full h-10 rounded cursor-pointer">
-                </div>
-                <div class="flex items-center gap-2 pt-2">
-                    <input type="checkbox" id="mirrorToggle" class="w-4 h-4 accent-indigo-600 rounded">
-                    <label for="mirrorToggle" class="text-sm font-medium">Mirror Traces & Vias</label>
-                </div>
-            </div>
-            <button id="generateBtn" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md transition-colors font-semibold shadow-sm">Generate 3D Models</button>
-            <p id="generateStatus" class="text-xs text-center mt-2 hidden"></p>
+            <input type="color" id="traceColorPicker" value="#ff0000" class="w-full h-10 rounded">
+            <button id="generateBtn" class="mt-5 w-full bg-emerald-600 text-white py-2 rounded-md">Generate 3D Models</button>
         </div>
     </aside>
 
     <main class="flex-1 relative bg-slate-900 flex flex-col">
-        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-10 pointer-events-none">
-            <div class="bg-slate-800/80 backdrop-blur text-white px-4 py-2 rounded-lg pointer-events-auto border border-slate-700">
-                <div class="flex bg-slate-900 rounded-md p-1 border border-slate-700">
-                    <button id="viewMainBtn" class="px-3 py-1 text-sm rounded transition-colors bg-indigo-600 text-white">Main Board</button>
-                    <button id="viewMoldBtn" class="px-3 py-1 text-sm rounded transition-colors text-slate-400 hover:text-white">Companion Mold</button>
-                </div>
-            </div>
-        </div>
         <div id="viewer-container" class="flex-1 w-full h-full"></div>
-        <div id="emptyState" class="absolute inset-0 flex items-center justify-center pointer-events-none"><p class="text-slate-500">No Model Generated</p></div>
     </main>
 
     <script type="module">
@@ -91,55 +62,66 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        let currentFolderId = null, generatedUrls = { main: null, mold: null }, currentView = 'main';
+        let currentFolderId = null, currentMesh = null;
         
-        const ui = {
-            zipFile: document.getElementById('zipFile'), uploadBtn: document.getElementById('uploadBtn'),
-            outlineLayer: document.getElementById('outlineLayer'), traceLayer: document.getElementById('traceLayer'), viaLayer: document.getElementById('viaLayer'),
-            baseThickness: document.getElementById('baseThickness'), traceThickness: document.getElementById('traceThickness'),
-            traceColorPicker: document.getElementById('traceColorPicker'), mirrorToggle: document.getElementById('mirrorToggle'),
-            baseVal: document.getElementById('baseVal'), traceVal: document.getElementById('traceVal'),
-            generateBtn: document.getElementById('generateBtn'), viewMainBtn: document.getElementById('viewMainBtn'),
-            viewMoldBtn: document.getElementById('viewMoldBtn'), emptyState: document.getElementById('emptyState')
+        // API Handling
+        document.getElementById('uploadBtn').onclick = async () => {
+            const file = document.getElementById('zipFile').files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            currentFolderId = data.upload_folder_id;
+            const selects = ['outlineLayer', 'traceLayer', 'viaLayer'];
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                el.innerHTML = data.layers.map(l => `<option value="${l}">${l}</option>`).join('');
+            });
+            
+            document.getElementById('mappingSection').style.opacity = 1;
+            document.getElementById('mappingSection').style.pointerEvents = 'auto';
+            document.getElementById('settingsSection').style.opacity = 1;
+            document.getElementById('settingsSection').style.pointerEvents = 'auto';
         };
 
-        // ... [Upload and Generate logic remains as previous] ...
-
-        // Updated Material logic
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        document.getElementById('viewer-container').appendChild(renderer.domElement);
-        const controls = new OrbitControls(camera, renderer.domElement);
-        
-        // Dynamic material updates
-        ui.traceColorPicker.addEventListener('input', (e) => {
-            if (currentMesh) {
-                // Assuming standard material update
-                currentMesh.material.color.set(e.target.value);
-            }
-        });
-
-        const loader = new STLLoader();
-        let currentMesh = null;
-
-        function loadSTL(url, type) {
-            if (currentMesh) { scene.remove(currentMesh); currentMesh.geometry.dispose(); }
+        document.getElementById('generateBtn').onclick = async () => {
+            const payload = {
+                upload_folder_id: currentFolderId,
+                outline_layer: document.getElementById('outlineLayer').value,
+                trace_layer: document.getElementById('traceLayer').value,
+                via_layer: document.getElementById('viaLayer').value
+            };
             
-            loader.load(url, (geometry) => {
-                const material = new THREE.MeshStandardMaterial({ 
-                    color: type === 'main' ? 0x10b981 : 0xf59e0b 
-                });
-                // Apply the user selected highlight color as an emissive or base modification
-                material.color.set(ui.traceColorPicker.value);
-                
-                currentMesh = new THREE.Mesh(geometry, material);
-                currentMesh.rotation.x = -Math.PI / 2;
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.main_model_url) loadSTL(data.main_model_url);
+        };
+
+        // Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth * 0.66, window.innerHeight);
+        document.getElementById('viewer-container').appendChild(renderer.domElement);
+        
+        function loadSTL(url) {
+            const loader = new STLLoader();
+            loader.load(url, (geo) => {
+                if (currentMesh) scene.remove(currentMesh);
+                currentMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: document.getElementById('traceColorPicker').value }));
                 scene.add(currentMesh);
             });
         }
         
-        // ... [Rest of existing animation and view toggle logic] ...
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        camera.position.z = 50;
+        animate();
     </script>
 </body>
 </html>
