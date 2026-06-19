@@ -27,34 +27,89 @@
     <aside class="w-1/3 min-w-[350px] max-w-[450px] bg-white border-r border-slate-200 p-6 overflow-y-auto flex flex-col gap-6 shadow-lg z-10">
         <div>
             <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="9" x2="9" y1="21" y2="9"/></svg>
                 PCB Press
             </h1>
+            <p class="text-sm text-slate-500 mt-1">Generate 3D printable recess boards & molds from Gerber/Drill files.</p>
         </div>
 
         <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h2 class="font-semibold mb-3">1. Upload Project (.zip)</h2>
-            <input type="file" id="zipFile" accept=".zip" class="block w-full text-sm">
-            <button id="uploadBtn" class="mt-3 w-full bg-indigo-600 text-white py-2 rounded-md">Upload & Parse</button>
+            <input type="file" id="zipFile" accept=".zip" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+            <button id="uploadBtn" class="mt-3 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-md transition-colors font-medium text-sm">Upload & Parse</button>
+            <p id="uploadStatus" class="text-xs text-center mt-2 hidden"></p>
         </div>
 
-        <div id="mappingSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none">
+        <div id="mappingSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none transition-opacity">
             <h2 class="font-semibold mb-3">2. Map Layers</h2>
             <div class="space-y-3">
-                <div><label class="text-xs font-semibold">Board Outline</label><select id="outlineLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
-                <div><label class="text-xs font-semibold">Traces</label><select id="traceLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
-                <div><label class="text-xs font-semibold">Drills / Vias</label><select id="viaLayer" class="w-full mt-1 p-2 border rounded-md text-sm"></select></div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 uppercase">Board Outline</label>
+                    <select id="outlineLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 uppercase">Traces</label>
+                    <select id="traceLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 uppercase">Drills / Vias (.drl)</label>
+                    <select id="viaLayer" class="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm"></select>
+                </div>
             </div>
         </div>
 
-        <div id="settingsSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none">
+        <div id="settingsSection" class="bg-slate-50 p-4 rounded-lg border border-slate-200 opacity-50 pointer-events-none transition-opacity">
             <h2 class="font-semibold mb-3">3. Board Settings</h2>
-            <input type="color" id="traceColorPicker" value="#ff0000" class="w-full h-10 rounded">
-            <button id="generateBtn" class="mt-5 w-full bg-emerald-600 text-white py-2 rounded-md">Generate 3D Models</button>
+            <div class="space-y-4">
+                <div>
+                    <div class="flex justify-between text-sm"><label class="font-medium">Base Thickness</label><span id="baseVal" class="text-indigo-600 font-mono">2.0 mm</span></div>
+                    <input type="range" id="baseThickness" min="1.0" max="4.0" step="0.1" value="2.0" class="w-full accent-indigo-600">
+                </div>
+                <div>
+                    <div class="flex justify-between text-sm"><label class="font-medium">Trace Depth</label><span id="traceVal" class="text-indigo-600 font-mono">1.0 mm</span></div>
+                    <input type="range" id="traceThickness" min="0.5" max="3.0" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                </div>
+                <div>
+                    <div class="flex justify-between text-sm"><label class="font-medium">Mold Margin Offset</label><span id="marginVal" class="text-indigo-600 font-mono">0.2 mm</span></div>
+                    <input type="range" id="marginOffset" min="0.1" max="1.0" step="0.1" value="0.2" class="w-full accent-indigo-600">
+                </div>
+                <div>
+                    <label class="font-medium text-sm block mb-1">Trace Highlight Color</label>
+                    <input type="color" id="traceColorPicker" value="#10b981" class="w-full h-10 rounded cursor-pointer">
+                </div>
+                <div class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" id="mirrorToggle" class="w-4 h-4 accent-indigo-600 rounded">
+                    <label for="mirrorToggle" class="text-sm font-medium">Mirror Traces & Vias</label>
+                </div>
+            </div>
+            <button id="generateBtn" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-md transition-colors font-semibold shadow-sm">Generate 3D Models</button>
+            <p id="generateStatus" class="text-xs text-center mt-2 hidden"></p>
         </div>
     </aside>
 
     <main class="flex-1 relative bg-slate-900 flex flex-col">
+        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-10 pointer-events-none">
+            <div class="bg-slate-800/80 backdrop-blur text-white px-4 py-2 rounded-lg pointer-events-auto border border-slate-700">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">View Model</p>
+                <div class="flex bg-slate-900 rounded-md p-1 border border-slate-700">
+                    <button id="viewMainBtn" class="px-3 py-1 text-sm rounded transition-colors bg-indigo-600 text-white">Main Board</button>
+                    <button id="viewMoldBtn" class="px-3 py-1 text-sm rounded transition-colors text-slate-400 hover:text-white">Companion Mold</button>
+                </div>
+            </div>
+            <div class="bg-slate-800/80 backdrop-blur text-slate-300 text-xs px-3 py-2 rounded-lg border border-slate-700">
+                Left Click: Rotate &bull; Right Click: Pan &bull; Scroll: Zoom
+            </div>
+        </div>
         <div id="viewer-container" class="flex-1 w-full h-full"></div>
+        <div id="emptyState" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div class="text-center text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-16 w-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                </svg>
+                <p class="text-lg font-medium">No Model Generated</p>
+                <p class="text-sm">Upload a zip and click generate to view.</p>
+            </div>
+        </div>
     </main>
 
     <script type="module">
@@ -62,65 +117,271 @@
         import { STLLoader } from 'three/addons/loaders/STLLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        let currentFolderId = null, currentMesh = null;
+        let currentFolderId = null;
+        let generatedUrls = { main: null, mold: null };
+        let currentView = 'main';
         
-        // API Handling
-        document.getElementById('uploadBtn').onclick = async () => {
-            const file = document.getElementById('zipFile').files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            const res = await fetch('/api/upload', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            currentFolderId = data.upload_folder_id;
-            const selects = ['outlineLayer', 'traceLayer', 'viaLayer'];
-            selects.forEach(id => {
-                const el = document.getElementById(id);
-                el.innerHTML = data.layers.map(l => `<option value="${l}">${l}</option>`).join('');
-            });
-            
-            document.getElementById('mappingSection').style.opacity = 1;
-            document.getElementById('mappingSection').style.pointerEvents = 'auto';
-            document.getElementById('settingsSection').style.opacity = 1;
-            document.getElementById('settingsSection').style.pointerEvents = 'auto';
+        const ui = {
+            zipFile: document.getElementById('zipFile'), uploadBtn: document.getElementById('uploadBtn'), uploadStatus: document.getElementById('uploadStatus'),
+            mappingSection: document.getElementById('mappingSection'), outlineLayer: document.getElementById('outlineLayer'), traceLayer: document.getElementById('traceLayer'), viaLayer: document.getElementById('viaLayer'),
+            settingsSection: document.getElementById('settingsSection'), baseThickness: document.getElementById('baseThickness'), traceThickness: document.getElementById('traceThickness'), marginOffset: document.getElementById('marginOffset'), traceColorPicker: document.getElementById('traceColorPicker'), mirrorToggle: document.getElementById('mirrorToggle'),
+            baseVal: document.getElementById('baseVal'), traceVal: document.getElementById('traceVal'), marginVal: document.getElementById('marginVal'),
+            generateBtn: document.getElementById('generateBtn'), generateStatus: document.getElementById('generateStatus'),
+            viewMainBtn: document.getElementById('viewMainBtn'), viewMoldBtn: document.getElementById('viewMoldBtn'), emptyState: document.getElementById('emptyState')
         };
 
-        document.getElementById('generateBtn').onclick = async () => {
+        // Slider Constraints
+        ui.baseThickness.addEventListener('input', (e) => {
+            const base = parseFloat(e.target.value);
+            ui.baseVal.textContent = base.toFixed(1) + ' mm';
+            const maxTrace = Math.max(0.1, base - 0.1);
+            if (parseFloat(ui.traceThickness.value) > maxTrace) {
+                ui.traceThickness.value = maxTrace;
+                ui.traceVal.textContent = maxTrace.toFixed(1) + ' mm';
+            }
+        });
+
+        ui.traceThickness.addEventListener('input', (e) => {
+            let trace = parseFloat(e.target.value);
+            const base = parseFloat(ui.baseThickness.value);
+            const maxTrace = Math.max(0.1, base - 0.1);
+            if (trace > maxTrace) { trace = maxTrace; ui.traceThickness.value = maxTrace; }
+            ui.traceVal.textContent = trace.toFixed(1) + ' mm';
+        });
+
+        ui.marginOffset.addEventListener('input', (e) => {
+            ui.marginVal.textContent = parseFloat(e.target.value).toFixed(1) + ' mm';
+        });
+
+        // API Handling: Upload
+        ui.uploadBtn.onclick = async () => {
+            const file = ui.zipFile.files[0];
+            if (!file) return alert("Please select a .zip file first.");
+
+            ui.uploadBtn.disabled = true; ui.uploadBtn.textContent = "Uploading...";
+            ui.uploadStatus.className = "text-xs text-center mt-2 text-indigo-600"; ui.uploadStatus.textContent = "Sending to server..."; ui.uploadStatus.classList.remove('hidden');
+
+            try {
+                const formData = new FormData(); formData.append('file', file);
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Upload failed");
+                
+                currentFolderId = data.upload_folder_id;
+                [ui.outlineLayer, ui.traceLayer, ui.viaLayer].forEach(select => {
+                    select.innerHTML = data.layers.map(l => `<option value="${l}">${l}</option>`).join('');
+                });
+
+                // Auto-guess
+                let foundTopLayer = false;
+                data.layers.forEach((layer, index) => {
+                    const low = layer.toLowerCase();
+                    if(low.includes('out') || low.includes('.gko') || low.includes('gm1')) ui.outlineLayer.selectedIndex = index;
+                    if(low === 'gerber_toplayer.gtl' || low === 'gerber_toplayer.gbr') { ui.traceLayer.selectedIndex = index; foundTopLayer = true; } 
+                    else if(!foundTopLayer && (low.includes('top') || low.includes('.gtl'))) { ui.traceLayer.selectedIndex = index; foundTopLayer = true; } 
+                    else if(!foundTopLayer && (low.includes('bot') || low.includes('.gbl'))) { ui.traceLayer.selectedIndex = index; }
+                    if(low.includes('.drl') || low.includes('drill')) ui.viaLayer.selectedIndex = index;
+                });
+
+                ui.uploadStatus.textContent = `Success! Found ${data.layers.length} layers.`;
+                ui.uploadStatus.className = "text-xs text-center mt-2 text-emerald-600";
+                ui.mappingSection.classList.remove('opacity-50', 'pointer-events-none');
+                ui.settingsSection.classList.remove('opacity-50', 'pointer-events-none');
+            } catch (err) {
+                ui.uploadStatus.textContent = err.message;
+                ui.uploadStatus.className = "text-xs text-center mt-2 text-red-600";
+            } finally {
+                ui.uploadBtn.disabled = false; ui.uploadBtn.textContent = "Upload & Parse";
+            }
+        };
+
+        // API Handling: Generate
+        ui.generateBtn.onclick = async () => {
+            if (!currentFolderId) return;
+
+            ui.generateBtn.disabled = true; ui.generateBtn.textContent = "Processing Geometry...";
+            ui.generateStatus.className = "text-xs text-center mt-2 text-indigo-600"; ui.generateStatus.textContent = "This may take a few seconds..."; ui.generateStatus.classList.remove('hidden');
+
             const payload = {
                 upload_folder_id: currentFolderId,
-                outline_layer: document.getElementById('outlineLayer').value,
-                trace_layer: document.getElementById('traceLayer').value,
-                via_layer: document.getElementById('viaLayer').value
+                outline_layer: ui.outlineLayer.value, trace_layer: ui.traceLayer.value, via_layer: ui.viaLayer.value,
+                base_thickness: parseFloat(ui.baseThickness.value), trace_thickness: parseFloat(ui.traceThickness.value),
+                mirror: ui.mirrorToggle.checked, margin_offset: parseFloat(ui.marginOffset.value)
             };
             
-            const res = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (data.main_model_url) loadSTL(data.main_model_url);
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Generation failed");
+
+                ui.generateStatus.textContent = "Success! Models ready.";
+                ui.generateStatus.className = "text-xs text-center mt-2 text-emerald-500";
+                
+                generatedUrls.main = data.main_model_url; generatedUrls.mold = data.mold_model_url;
+                ui.emptyState.classList.add('hidden');
+                switchView('main');
+            } catch (err) {
+                ui.generateStatus.textContent = err.message;
+                ui.generateStatus.className = "text-xs text-center mt-2 text-red-500";
+            } finally {
+                ui.generateBtn.disabled = false; ui.generateBtn.textContent = "Generate 3D Models";
+            }
         };
 
         // Three.js setup
+        const container = document.getElementById('viewer-container');
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth * 0.66, window.innerHeight);
-        document.getElementById('viewer-container').appendChild(renderer.domElement);
+        scene.add(new THREE.GridHelper(100, 50, 0x444444, 0x222222));
         
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 50, 50);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.dampingFactor = 0.05;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        const loader = new STLLoader();
+        let currentMesh = null;
+
+        // Dynamic material updates based on the color picker (modifies only trace vertices)
+        ui.traceColorPicker.addEventListener('input', (e) => {
+            if (currentMesh && currentMesh.geometry.attributes.color && currentMesh.userData.traceIndices) {
+                const traceColor = new THREE.Color(e.target.value);
+                const colorsAttr = currentMesh.geometry.attributes.color;
+                const indices = currentMesh.userData.traceIndices;
+                
+                for (let i = 0; i < indices.length; i++) {
+                    const idx = indices[i];
+                    colorsAttr.setXYZ(idx, traceColor.r, traceColor.g, traceColor.b);
+                }
+                colorsAttr.needsUpdate = true;
+            }
+        });
+
         function loadSTL(url) {
-            const loader = new STLLoader();
-            loader.load(url, (geo) => {
-                if (currentMesh) scene.remove(currentMesh);
-                currentMesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: document.getElementById('traceColorPicker').value }));
+            if (currentMesh) { scene.remove(currentMesh); currentMesh.geometry.dispose(); }
+            
+            loader.load(url, (geometry) => {
+                // Compute bounds and normals mathematically isolate trace faces
+                geometry.computeBoundingBox();
+                geometry.computeVertexNormals();
+
+                const posAttr = geometry.attributes.position;
+                const normAttr = geometry.attributes.normal;
+                
+                const colors = new Float32Array(posAttr.count * 3);
+                const traceIndices = [];
+
+                const maxZ = geometry.boundingBox.max.z;
+                const minZ = geometry.boundingBox.min.z;
+                
+                // Set default colors
+                const baseColor = new THREE.Color(currentView === 'main' ? 0xe2e8f0 : 0x334155); // Slate colors for base
+                const traceColor = new THREE.Color(ui.traceColorPicker.value);
+
+                // Loop through faces (every 3 vertices is 1 face in non-indexed STL buffer geometries)
+                for (let i = 0; i < posAttr.count; i += 3) {
+                    const z0 = posAttr.getZ(i);
+                    const z1 = posAttr.getZ(i+1);
+                    const z2 = posAttr.getZ(i+2);
+                    
+                    const nz0 = normAttr.getZ(i);
+                    const nz1 = normAttr.getZ(i+1);
+                    const nz2 = normAttr.getZ(i+2);
+                    
+                    const avgZ = (z0 + z1 + z2) / 3;
+                    const avgNz = (nz0 + nz1 + nz2) / 3;
+                    
+                    let isTrace = false;
+                    
+                    if (currentView === 'main') {
+                        // Main board: Color the flat trace floors that were recessed.
+                        // Must be facing upwards (avgNz > 0.5) and below the top surface.
+                        if (avgNz > 0.5 && avgZ < maxZ - 0.01 && avgZ > minZ + 0.01) {
+                            isTrace = true;
+                        }
+                    } else {
+                        // Mold: Color the extruded trace protrusions.
+                        // The backend builds the base exactly 2.0mm high, so anything above is a trace.
+                        if (avgZ > 2.01) {
+                            isTrace = true;
+                        }
+                    }
+                    
+                    if (isTrace) {
+                        colors[i*3] = colors[i*3+3] = colors[i*3+6] = traceColor.r;
+                        colors[i*3+1] = colors[i*3+4] = colors[i*3+7] = traceColor.g;
+                        colors[i*3+2] = colors[i*3+5] = colors[i*3+8] = traceColor.b;
+                        traceIndices.push(i, i+1, i+2);
+                    } else {
+                        colors[i*3] = colors[i*3+3] = colors[i*3+6] = baseColor.r;
+                        colors[i*3+1] = colors[i*3+4] = colors[i*3+7] = baseColor.g;
+                        colors[i*3+2] = colors[i*3+5] = colors[i*3+8] = baseColor.b;
+                    }
+                }
+
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+                // Tell the material to use our custom vertex colors instead of a solid color
+                const material = new THREE.MeshStandardMaterial({ 
+                    vertexColors: true,
+                    roughness: 0.6, metalness: 0.1 
+                });
+                
+                currentMesh = new THREE.Mesh(geometry, material);
+                currentMesh.userData.traceIndices = traceIndices; // Save so the color picker can update it instantly
+                
+                // Position and orient
+                const center = geometry.boundingBox.getCenter(new THREE.Vector3());
+                currentMesh.position.sub(center);
+                currentMesh.rotation.x = -Math.PI / 2; // Lay flat
+                
                 scene.add(currentMesh);
+                
+                // Adjust camera
+                const size = geometry.boundingBox.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                camera.position.set(0, maxDim, maxDim);
+                controls.target.set(0, 0, 0);
+                controls.update();
             });
         }
-        
-        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
-        camera.position.z = 50;
+
+        function switchView(type) {
+            if (!generatedUrls[type]) return;
+            currentView = type;
+            
+            if (type === 'main') {
+                ui.viewMainBtn.className = "px-3 py-1 text-sm rounded transition-colors bg-indigo-600 text-white";
+                ui.viewMoldBtn.className = "px-3 py-1 text-sm rounded transition-colors text-slate-400 hover:text-white";
+            } else {
+                ui.viewMoldBtn.className = "px-3 py-1 text-sm rounded transition-colors bg-indigo-600 text-white";
+                ui.viewMainBtn.className = "px-3 py-1 text-sm rounded transition-colors text-slate-400 hover:text-white";
+            }
+            loadSTL(generatedUrls[type]);
+        }
+
+        ui.viewMainBtn.addEventListener('click', () => switchView('main'));
+        ui.viewMoldBtn.addEventListener('click', () => switchView('mold'));
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
         animate();
     </script>
 </body>
